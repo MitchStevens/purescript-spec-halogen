@@ -4,22 +4,19 @@ package:
     - halogen
     - effect
     - spec
-    - signal
+    - parsing
+    - matryoshka
   name: spec-halogen
-  extraPackages:
-    spec:
-      git: https://github.com/MitchStevens/purescript-spec.git
-      ref: 0ee9a810235809afcbc2f8a81e4f110c001b3b44
 
   build:
     censorProjectWarnings: "all"
 
-  bundle:
-    minify: false
-    module: Main
-    outfile: "dist/index.js"
-    platform: browser
-    type: "app"
+  #bundle:
+  #  minify: false
+  #  module: Main
+  #  outfile: "dist/index.js"
+  #  platform: browser
+  #  type: "app"
 
   test:
     main: Test.Main
@@ -27,8 +24,7 @@ package:
       - spec-discovery
       - profunctor-lenses
       - spec-node
-    
-    censorTestWarnings: all
+    execArgs: [ -v, --json-errors ]
 
 workspace:
   packageSet:

@@ -70,3 +70,21 @@ withComponent (mkTestComponent componentSpec) input do
 
 
 ```
+
+
+```mermaid
+flowchart LR
+  input.listener  --> Component
+  action.listener --> Component
+  query.listener  --> Component
+  state.listner  --> Component
+
+  Component --> action.emitter
+  Component --> output.emitter
+  Component --> query.emitter
+  Component --> state.emitter
+```
+
+
+
+
