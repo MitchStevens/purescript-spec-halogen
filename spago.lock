@@ -6,7 +6,10 @@ workspace:
         dependencies:
           - aff
           - effect
+          - fixed-points
+          - functors
           - halogen
+          - matryoshka
           - signal
           - spec
         build_plan:
@@ -28,6 +31,7 @@ workspace:
           - enums
           - exceptions
           - exists
+          - fixed-points
           - foldable-traversable
           - foreign
           - foreign-object
@@ -47,6 +51,7 @@ workspace:
           - js-promise
           - lazy
           - lists
+          - matryoshka
           - maybe
           - media-types
           - mmorph
@@ -926,6 +931,15 @@ packages:
     integrity: sha256-4wxViTbyOoyKJ/WaRGI6+hZmgMKI5Miv16lSwefiLSM=
     dependencies:
       - enums
+  fixed-points:
+    type: registry
+    version: 7.0.0
+    integrity: sha256-hTl5fzeG4mzAOFzEzAeNH7kJvJgYCH7x3v2NdX9pOE4=
+    dependencies:
+      - exists
+      - newtype
+      - prelude
+      - transformers
   foldable-traversable:
     type: registry
     version: 6.0.0
@@ -1172,6 +1186,16 @@ packages:
       - tailrec
       - tuples
       - unfoldable
+  matryoshka:
+    type: registry
+    version: 1.0.0
+    integrity: sha256-dPK0v3oNvaHL7finM6TqtxqHIDiiFKLQkqpoerGVqKE=
+    dependencies:
+      - fixed-points
+      - free
+      - prelude
+      - profunctor
+      - transformers
   maybe:
     type: registry
     version: 6.0.0

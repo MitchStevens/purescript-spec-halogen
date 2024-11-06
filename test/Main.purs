@@ -19,23 +19,23 @@ import Halogen as Test
 import Test.Component.Counter (Action(..), Output(..), Query(..))
 import Test.Component.Counter as Counter
 import Test.Component.Summation as Summation
-import Test.Halogen.Driver (TestComponentQuery(..), mkTestComponent)
-import Test.Halogen.Driver as TestDriver
 import Test.Spec (SpecT, before, describe, it, itOnly, parallel, pending)
 import Test.Spec.Assertions (expectError)
 import Test.Spec.Discovery (discover)
-import Test.Spec.Halogen.Assertions (shouldHaveState, shouldHaveStateSatisfying, shouldRaise, shouldRaiseAnything, shouldTrigger)
-import Test.Spec.Halogen.Monad (childTell, request, tell, trigger, withComponent)
 import Test.Spec.Reporter (consoleReporter)
 import Test.Spec.Runner (runSpec)
 import Test.Spec.Runner.Node (runSpecAndExitProcess, runSpecAndExitProcess')
 import Test.Spec.Runner.Node.Config (defaultConfig)
 import Type.Proxy (Proxy(..))
+import UnitTests.Spec.Halogen.Predicate as Predicate
 
 main :: Effect Unit
---main = launchAff_ do
+main = launchAff_ do
 --  specs <- discover "Test.*"
---  liftEffect (runSpecAndExitProcess [ consoleReporter ] specs)
+
+  liftEffect $ runSpecAndExitProcess [ consoleReporter ] Predicate.spec
+
+{-
 main = runSpecAndExitProcess [ consoleReporter ] tests
 
 tests :: forall m. Monad m => SpecT Aff Unit m Unit
