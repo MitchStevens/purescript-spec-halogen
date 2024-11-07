@@ -40,12 +40,6 @@ import Prim.Boolean (True)
 import Signal (Signal)
 import Unsafe.Coerce (unsafeCoerce)
 
-{-
-  Observations are predicates that produce aritifacts
-  The artifacts are used to sequence observations
-
--}
- 
 data PredicateF a b
   = Not b
   | Or b b
@@ -114,8 +108,8 @@ instance HeytingAlgebra (IncrementalPredicate a) where
   conj = and_
   implies x y = not_ x `and_` y
 
-incrementalPredicate :: Cofree (PredicateF a) IsSatisfied -> IncrementalPredicate a
-incrementalPredicate cofree = Incremental ()
+incrementalPredicate :: forall a. Cofree (PredicateF a) IsSatisfied -> IncrementalPredicate a
+incrementalPredicate pred = Incremental (extend f pred)
   where
     f :: Cofree (PredicateF a) IsSatisfied -> IsSatisfied
     f cofree = case Cofree.tail cofree of 
@@ -124,8 +118,6 @@ incrementalPredicate cofree = Incremental ()
       And x y -> conj (Cofree.head x) (Cofree.head y)
       Sequence x y -> conj (Cofree.head x) (Cofree.head y)
       _ -> Cofree.head cofree
-    
-
 
 toArray :: forall a b. PredicateF a b -> Array b
 toArray = case _ of
@@ -167,13 +159,20 @@ runIncremental a = unwrap >>> go >>> wrap
           Satisfies p -> Satisfies p
           None -> None
 
+{-
+  After all observations have been seen, the `Incremental` should be finalised. This 
+
+  - this rule is  applied to all nodes in predicate tree -> not (Unsat :< a) => not (true :< a)
+  - IsSatisfied labels are recomputed
+
+-}
 finaliseIncremental :: forall a. IncrementalPredicate a -> IncrementalPredicate a
 finaliseIncremental (Incremental x) = incrementalPredicate (extend f x)
   where
     f :: Cofree (PredicateF a) IsSatisfied -> IsSatisfied
     f cofree = case Cofree.tail cofree of
       Not x -> if Cofree.head x == Unsatisfied then Satisfied true else Cofree.head x
-      x -> Cofree.head x
+      _ -> Cofree.head cofree
 
 repeatExactly :: forall a. Int -> IncrementalPredicate a -> IncrementalPredicate a
 repeatExactly 0 incremental = not incremental

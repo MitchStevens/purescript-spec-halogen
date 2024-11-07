@@ -22,8 +22,8 @@ import Halogen.Subscription (Subscription)
 import Halogen.Subscription as HS
 import Partial.Unsafe (unsafeCrashWith)
 import Test.Spec.Assertions (fail)
-import Test.Spec.Halogen.Driver (HandleOutput(..), HandleQuery(..), TestHalogenM)
-import Test.Spec.Halogen.Predicate (IncrementalPredicate, IsSatisfied(..), equals, isSatisfied, runIncremental, runIncrementalFromEmitter)
+import Test.Spec.Halogen.Driver (AugmentedOutput(..), AugmentedQuery(..), TestHalogenM)
+import Test.Spec.Halogen.Predicate (IncrementalPredicate, IsSatisfied(..), equals, finaliseIncremental, isSatisfied, runIncremental, runIncrementalFromEmitter, runIncrementalFromFoldable)
 
 --shouldSatisfy :: forall f a. Foldable f => Eq a => Show a => f a -> IncrementalPredicate a -> Aff Unit
 --shouldSatisfy values incremental = do
@@ -142,13 +142,15 @@ import Test.Spec.Halogen.Predicate (IncrementalPredicate, IsSatisfied(..), equal
 --    throwError (error ("didn't trigger " <> show action))
 --
 
+
 shouldInduce :: forall state query action slots input output a
-  .  TestHalogenM state query action slots input output a
+  .  Eq state => Eq action => Eq input => Eq output =>
+  TestHalogenM state query action slots input output a
   -> IncrementalPredicate (AugmentedOutput state query action slots input output) 
   -> TestHalogenM state query action slots input output a
 shouldInduce testHalogenM pred = do
   timeout <- asks (_.settings.timeout)
-  messages <- asks (_.messages)
+  messages <- asks (_.io.messages)
   ref <- liftAff (runIncrementalFromEmitter messages pred)
   res <- testHalogenM
   liftAff (delay timeout)
@@ -157,20 +159,18 @@ shouldInduce testHalogenM pred = do
     Satisfied true -> pure res
     _ -> throwError (error (show isSat))
 
---runIncrementalFromEmitter :: forall a. Eq a => Emitter a -> IncrementalPredicate a -> Aff (Ref (IncrementalPredicate a))
-
-
 triggered :: forall state query action slots input output
   .  action 
-  -> IncrementalPredicate (HandleOutput state query action slots input output)
+  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
 triggered a = equals (Triggered a)
 
 trigger :: forall state query action slots input output
   .  action 
-  -> TestHalogenM state query action slots input output unit
+  -> TestHalogenM state query action slots input output Unit
 trigger action = do
   query <- asks (_.io.query)
-  query (Trigger action)
+  _ <- liftAff $ query (Trigger action)
+  pure unit
 
 
 --
@@ -198,3 +198,20 @@ trigger action = do
 --shouldHaveStateSatisfying pred = do
 --  received <- componentState
 --  received `shouldSatisfy` pred
+
+
+{-
+  Used for testing `IncrementalPredicate`s
+-}
+shouldBeSatisfiedBy :: forall f a. Foldable f => Eq a => Show a
+  => IncrementalPredicate a
+  -> f a
+  -> Aff Unit
+shouldBeSatisfiedBy pred values = do
+  let final = finaliseIncremental (runIncrementalFromFoldable values pred)
+  unless (isSatisfied final == Satisfied true) do
+    throwError (error (show final))
+
+
+
+

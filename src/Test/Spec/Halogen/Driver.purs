@@ -6,7 +6,7 @@ import Control.Alt ((<|>))
 import Control.Alternative (guard)
 import Control.Monad.Fork.Class (class MonadBracket, bracket, fork, never)
 import Control.Monad.Reader (class MonadAsk, class MonadReader, ReaderT(..), ask, asks, lift, runReaderT)
-import Control.Monad.State (class MonadState, StateT)
+import Control.Monad.State (class MonadState, StateT, modify, modify_)
 import Data.Coyoneda (Coyoneda, coyoneda, hoistCoyoneda, liftCoyoneda, lowerCoyoneda, unCoyoneda)
 import Data.Exists (Exists, mkExists, runExists)
 import Data.Foldable (for_)
@@ -34,7 +34,6 @@ import Prim.Row (class Cons)
 import Signal (Signal)
 import Signal.Aff (mapAff)
 import Signal.Channel (Channel, channel, send, subscribe)
-import Test.Halogen.Driver (TestHalogenIO, mkTestComponent)
 import Test.Spec (class Example, SpecT, after_, around, around_, before_, mapSpecTree)
 import Test.Spec.Assertions (fail)
 import Type.Proxy (Proxy(..))
@@ -57,6 +56,7 @@ data AugmentedOutput state query action slots input output
   = Triggered action
   | Modified state
   | Raised output 
+derive instance (Eq state, Eq action, Eq output) => Eq (AugmentedOutput state query action slots input output)
 
 type TestComponent state query action slots input output m
   = Component
@@ -64,7 +64,7 @@ type TestComponent state query action slots input output m
       input
       (AugmentedOutput state query action slots input output) m
 
-type TestHalogenIO state query action slots input output m
+type TestHalogenIO state query action slots input output m =
   { query :: forall a. AugmentedQuery state query action slots input output a -> m (Maybe a)
   , messages :: Emitter (AugmentedOutput state query action slots input output)
   , dispose :: m Unit
@@ -76,12 +76,14 @@ type ComponentHandle state query action slots input output =
   , settings :: Settings
   }
 
-mkTestComponent :: ComponentSpec state query action slots input output m -> TestComponent state query action slongs input output m
-mkTestComponent spec = mkComponent (spec { eval = eval }) input
+mkTestComponent :: forall state query action slots input output m
+  .  ComponentSpec state query action slots input output m 
+  -> TestComponent state query action slots input output m
+mkTestComponent spec = mkComponent (spec { eval = eval })
   where
     eval
-      :: HalogenQ (HandleQuery state query action slots input output) action input 
-      ~> HalogenM state action slots (HandleOutput state query action slots input output) Aff
+      :: HalogenQ (AugmentedQuery state query action slots input output) action input 
+      ~> HalogenM state action slots (AugmentedOutput state query action slots input output) m
     eval = case _ of
       Initialize a ->
         mapOutput Raised $ spec.eval (Initialize a)
@@ -97,7 +99,10 @@ mkTestComponent spec = mkComponent (spec { eval = eval }) input
           mapOutput Raised $ spec.eval (Action action (lazy unit))
         ComponentQuery query ->
           mapOutput Raised $ spec.eval (Query (map un (liftCoyoneda query)) lazy)
-
+        Modify f -> do
+          s <- modify f
+          H.raise (Modified s)
+          pure (lazy unit)
 
 
 --type TestHalogenM :: Type -> (Type -> Type) -> Type -> Row Type -> Type -> Type -> Type  -> Type
@@ -110,16 +115,16 @@ withComponent :: forall state query action slots input output m a. Monad m =>
   -> input
   -> SpecT Aff (ComponentHandle state query action slots input output) m a
   -> SpecT Aff Unit m a
-withComponent spec input =
-  around (bracket runComponent (\_ -> disposeComponent))
+withComponent spec input = around (bracket runComponent (\_ -> disposeComponent))
+  where
       
     disposeComponent :: ComponentHandle state query action slots input output -> Aff Unit
-    disposeComponent handle = handle.dispose
+    disposeComponent handle = handle.io.dispose
   
     runComponent :: Aff (ComponentHandle state query action slots input output) 
     runComponent = do
       { query , messages , dispose } <- runUI (mkTestComponent spec) input
-      pure { query , messages , dispose , settings: defaultSettings }
+      pure { io: { query , messages , dispose}, settings: defaultSettings }
 
 
 data R s act ps o = R

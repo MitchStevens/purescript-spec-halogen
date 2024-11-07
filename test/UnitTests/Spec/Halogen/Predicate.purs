@@ -4,10 +4,12 @@ import Prelude
 import Test.Spec.Halogen.Predicate
 
 import Control.Extend (extend)
+import Control.Comonad.Cofree ((:<))
 import Data.Foldable (class Foldable, foldr, for_, or)
 import Data.HeytingAlgebra (ff, tt)
 import Test.Spec (Spec, describe, it, pending)
 import Test.Spec.Assertions (expectError, shouldEqual)
+import Test.Spec.Halogen.Assertions (shouldBeSatisfiedBy)
 
 --runIncremental :: forall a. Eq a => IncrementalPredicate a -> Array a -> Boolean
 --runIncremental incremental array =
@@ -30,6 +32,44 @@ spec = describe "Test.Spec.Halogen.Predicate" do
     isSatisfied (equals 0) `shouldEqual` Unsatisfied
     isSatisfied (ff `then_` tt) `shouldEqual` Satisfied false
     isSatisfied (tt `then_` tt) `shouldEqual` Satisfied true
+  
+  it "finaliseIncremental" do
+    isSatisfied (finaliseIncremental (equals 1)) `shouldEqual` Unsatisfied
+
+  describe "repeatAtLeast" do
+    let incremental = repeatAtLeast 2 (equals 0)
+    it "should fail when number of observations < n" do
+      expectError $ incremental `shouldBeSatisfiedBy` []
+      expectError $ incremental `shouldBeSatisfiedBy` [0]
+    it "should pass when number of observations >= n" do
+        incremental `shouldBeSatisfiedBy` [0, 0]
+        incremental `shouldBeSatisfiedBy` [0, 0, 0, 0]
+        incremental `shouldBeSatisfiedBy` [1, 0, 1, 0]
+  --describe "repeatAtMost" do
+  --  let incremental = not (repeatAtLeast 2 (equals 0))
+  --  it "should fail when number of observations > n" do
+  --    incremental `shouldBeSatisfiedBy` []
+      --incremental `shouldBeSatisfiedBy` [0]
+      --incremental `shouldBeSatisfiedBy` [0, 0]
+    --it "should pass when number of observations <= n" do
+    --  expectError $ incremental `shouldBeSatisfiedBy` [0, 0, 0, 0]
+    --  expectError $ incremental `shouldBeSatisfiedBy` [1, 0, 1, 0]
+  
+  describe "HeytingAlgebra operations" do
+    describe "not" do
+      it "should negate `tt`" do
+        not ff `shouldBeSatisfiedBy` ([] :: _ Int) 
+      it "should negate `ff`" do
+        expectError $ not tt `shouldBeSatisfiedBy` ([] :: _ Int) 
+      --it "should perform double negatives" do
+      --  expectError $ not (not ff) `shouldBeSatisfiedBy` ([] :: _ Int) 
+        --not (not tt) `shouldBeSatisfiedBy` ([] :: _ Int) 
+
+  describe "incrementalPredicate" do
+    it "should recompute isSat labels" do
+      isSatisfied (incrementalPredicate (Satisfied true :< None)) `shouldEqual` Satisfied true
+      isSatisfied (incrementalPredicate (Unsatisfied :< Not (Satisfied true :< None))) `shouldEqual` Satisfied false
+
 
   describe "IncrementalPredicate" do
     describe "runIncremental" do 
