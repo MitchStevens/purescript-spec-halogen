@@ -15,8 +15,6 @@ spec = withComponent componentSpec input do
       stateShouldSatisfy \s -> s.numUsers == 1
 ```
 
-Components are created and destroyed during every test
-
 ## Linguistic choices
 
 A Halogen component has a large number of type variables that constrain operations on the component.
@@ -43,20 +41,88 @@ But during testing, we want to be able to trigger actions from outside
 
 The Spec-Halogen equivalents expose the
 
-## Usage
+# Usage
+Test are have two parts:
+  - An **Action**, which describes an operation to be performed on the component, and
+  - A **Predicate**, which decribe what we expect to happen to the component when the operation is performed.
+
+The action and the predicate are combined with the `shouldInvoke`:
+
+```
+action (Action.AddUser user) `shouldInvoke` raised Output.AddedUserSuccessfully
+```
 
 Every operation performed on a TestComponent has a [collocated verb](https://ellii.com/blog/verb-collocations) with a past and present tense.
 
 The **present tense** is used when performing an operation.  The **past tense** creates predicates used to test that an operation was induced.
 
-| Operation type | Present tense | Past tense |
+| Operation type | Operation (Present tense) | Predicate (Past tense) |
 | -- | -- | -- |
 | State | `modify state` |  `modified state` |
-| Query | `request query` |  `requested query` |
+| Query | `tell query` <br> `request query` |   |
+| ChildQuery | `tellChild` <br> `requestChild query` |   |
 | Action | `trigger action` | `triggered action` |
-| Input | `recieve input` |  N/A |
-| Ouput | N/A | `raised output` |
+| Input | `recieve input` |  |
+| Ouput | | `raised output` |
 
+The grammar for creating halogen component tests is:
+
+**OPERATION** `shouldInvoke` **PREDICATE** [**OTHER OPTIONS**]
+
+```mermaid
+flowchart LR
+
+action_operation[trigger action] ---> shouldInvoke
+
+tell_operation[componentTell query] ---> shouldInvoke
+request_operation[componentRequest query] ---> shouldInvoke
+child_tell_operation[childTell query] ---> shouldInvoke
+child_request_operation[childRequest query] ---> shouldInvoke
+modify_operation[modify state] --> shouldInvoke
+recieve_operation[recieve input] --> shouldInvoke
+
+
+shouldInvoke ---> action_predicate[triggered action]
+shouldInvoke ---> output_predicate[raised output]
+shouldInvoke ---> state_predicate[modified state]
+
+```
+
+## Operations
+Operations do things to the component.
+
+
+
+## Predicates
+The predicates used by this library are *Incremental* predicates (I don't know a better name). They work more like a parser; taking a bunch of observations and eventually returning either `Unsatisfied` or `Satisfied true`. More rarely they'll return `Satisfied false` if your predicates use negation.
+
+Most of the time, you'll only need an atomic predicate to describe the internal state of your component post-action:
+
+```haskell
+describe "atomic predicates" do
+  it "ensures that the user mitch can be deleted" do
+    componentQuery (DeleteUser "mitch") `shouldInvoke` triggered DBAction
+
+  it "calls a sub action" do
+    trigger (Compute "1+1") `shouldInvoke` trigger (Addition 1 1)
+```
+
+`IncrementalPredicate` has a `HeytingAlgebra` instance, which means predicates can be used with heyting algebra functions:
+
+```haskell
+do
+  -- predicate succeeds when either `a` or `b` is satisfied
+  action1 `shouldInvoke` (a || b)
+
+  -- predicate succeeds when `a` is satisfied and also b is satisfied
+  action2 `shouldInvoke` (a && b)
+
+  -- predicate succeeds when `a` is not satisfied
+  action3 `shouldInvoke` (not a)
+```
+
+There is also a `then_` predicate that is satisfied when a
+  
 
 
 
@@ -64,7 +130,7 @@ The **present tense** is used when performing an operation.  The **past tense** 
 
 ## Expose `ComponentSpec` in module
 
-When testing, we use `mkTestComponent` to create a thin wrapper over the original component that provides access to internal `Action` and `State`. The spec used to create the component should also be exported from the module.
+When testing, we use `mkTestComponent` to create a thin wrapper over the original component that provides access to internal `Action` and `State`. The spec used to create the component should also be exported from the module. 
 
 ```haskell
 module MyComponent (component, componentSpec)
@@ -115,20 +181,20 @@ withComponent (mkTestComponent componentSpec) input do
 
 
 ```
-## I want to test for more complex patterns of behavior!
 
-Because `IncrementalPredicate` has a `HeytingAlgebra` instance, they can be used with standard boolean algebra functions:
+### I want to preserve component state between tests!
+
+
+
+
+### My component needs more time to process an operation!
+Use the `setTimeout` combinator from Test.Spec.Halogen.Driver. Since infix functions in purescript are right-associative, you don't even need parens!
 
 ```haskell
-do
-  -- passes when either a is 
-  action1 *> shouldTrigger (a || b)
-  action2 *> shouldTrigger (raised Failing && raised Flailing)
+it "should complete " do
+  timelyOperation `shouldInduce` whatever `setTimeout` (Milliseconds 5000.0)
 ```
 
+### I want to assert that an action is performed exactly `n` times!
 
-## I want to preserve component state between tests!
-
-## I want to define properties that
-
-## My component needs more time to process input!
+To write tests that require repetition, you should

@@ -142,10 +142,10 @@ import Test.Spec.Halogen.Predicate (IncrementalPredicate, IsSatisfied(..), equal
 --    throwError (error ("didn't trigger " <> show action))
 --
 
-
 shouldInduce :: forall state query action slots input output a
-  .  Eq state => Eq action => Eq input => Eq output =>
-  TestHalogenM state query action slots input output a
+  .  Eq state => Eq action => Eq output
+  => Show state => Show action => Show output
+  => TestHalogenM state query action slots input output a
   -> IncrementalPredicate (AugmentedOutput state query action slots input output) 
   -> TestHalogenM state query action slots input output a
 shouldInduce testHalogenM pred = do
@@ -154,10 +154,10 @@ shouldInduce testHalogenM pred = do
   ref <- liftAff (runIncrementalFromEmitter messages pred)
   res <- testHalogenM
   liftAff (delay timeout)
-  isSat <- liftEffect $ isSatisfied <$> Ref.read ref
-  case isSat of
+  incremental <- liftEffect $ Ref.read ref
+  case isSatisfied incremental of
     Satisfied true -> pure res
-    _ -> throwError (error (show isSat))
+    _ -> throwError (error (show incremental))
 
 triggered :: forall state query action slots input output
   .  action 
@@ -172,19 +172,12 @@ trigger action = do
   _ <- liftAff $ query (Trigger action)
   pure unit
 
+modified :: forall state query action slots input output
+  .  state 
+  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
+modified s = equals (Modified s)
 
---
---{-
---  ma `shouldTrigger` action => ma `shouldTriggerAnything`
----}
---shouldTriggerAnything :: forall state query action output slots. Eq output => Eq action => Show action
---  => TestHalogenM state query action output slots Unit 
---  -> TestHalogenM state query action output slots Unit
---shouldTriggerAnything testHalogenM = do
---  output <- subscribeToOutput testHalogenM (actionPredicate (\_ -> true))
---  unless (isJust output) do
---    throwError (error ("didn't trigger anything"))
---
+
 --shouldHaveState :: forall state query action output slots. Eq state => Show state
 --  => state
 --  -> TestHalogenM state query action output slots Unit

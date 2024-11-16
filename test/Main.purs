@@ -5,6 +5,9 @@ module Test.Main
 
 import Prelude
 
+import Component.Counter (Action(..), Output(..), Query(..))
+import Component.Counter as Counter
+import Component.Summation as Summation
 import Control.Monad.Error.Class (try)
 import Control.Monad.Reader (local, runReaderT)
 import Data.Array ((..))
@@ -16,9 +19,6 @@ import Effect.Class.Console (log, logShow)
 import Halogen (liftEffect)
 import Halogen as H
 import Halogen as Test
-import Test.Component.Counter (Action(..), Output(..), Query(..))
-import Test.Component.Counter as Counter
-import Test.Component.Summation as Summation
 import Test.Spec (SpecT, before, describe, it, itOnly, parallel, pending)
 import Test.Spec.Assertions (expectError)
 import Test.Spec.Discovery (discover)
@@ -27,13 +27,16 @@ import Test.Spec.Runner (runSpec)
 import Test.Spec.Runner.Node (runSpecAndExitProcess, runSpecAndExitProcess')
 import Test.Spec.Runner.Node.Config (defaultConfig)
 import Type.Proxy (Proxy(..))
+import UnitTests.Spec.Halogen.Assertions as Assertions
 import UnitTests.Spec.Halogen.Predicate as Predicate
 
 main :: Effect Unit
 main = launchAff_ do
 --  specs <- discover "Test.*"
 
-  liftEffect $ runSpecAndExitProcess [ consoleReporter ] Predicate.spec
+  liftEffect $ runSpecAndExitProcess [ consoleReporter ] do
+    Assertions.spec
+    Predicate.spec
 
 {-
 main = runSpecAndExitProcess [ consoleReporter ] tests

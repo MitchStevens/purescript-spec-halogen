@@ -6,7 +6,8 @@
     "build": "spago bundle",
     "build-watch": "fd . -e purs -e js -e less | entr -s 'npm run build'",
     "test": "spago test -- --fail-fast",
-    "test-watch": "fd . -e purs -e js | entr -s 'npm run test'"
+    "test-watch": "fd . -e purs -e js | entr -s 'npm run test'",
+    "clean": "rm -r output"
   },
   "devDependencies": {
     "esbuild": "^0.18.15",

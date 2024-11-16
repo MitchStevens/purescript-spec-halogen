@@ -1,4 +1,4 @@
-module Test.Component.Summation where
+module Component.Summation where
 
 import Prelude
 
@@ -15,7 +15,7 @@ import Effect.Aff.Class (class MonadAff)
 import Halogen (ComponentHTML, ComponentSpec, HalogenM, Slot, requestAll)
 import Halogen as H
 import Halogen.HTML as HH
-import Test.Component.Counter as Counter
+import Component.Counter as Counter
 import Type.Proxy (Proxy(..))
 
 type Input = 
