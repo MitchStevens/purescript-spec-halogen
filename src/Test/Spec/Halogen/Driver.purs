@@ -190,7 +190,6 @@ runUI :: forall query input output
   .  Component query input output Aff
   -> input 
   -> Aff (HalogenIO query output Aff)
-  -> Aff (HalogenIO query output Aff)
 runUI = AffDriver.runUI renderSpec
   where
     renderSpec :: RenderSpec R

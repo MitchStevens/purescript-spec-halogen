@@ -8,7 +8,7 @@ import Control.Monad.Reader (runReaderT)
 import Effect.Aff (Aff)
 import Test.Spec (Spec, SpecT, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldReturn)
-import Test.Spec.Halogen.Assertions (modified, shouldInduce, trigger)
+import Test.Spec.Halogen.Assertions (shouldInduce, trigger)
 import Test.Spec.Halogen.Driver (AugmentedOutput(..), getComponentState, mkTestComponent, withComponent)
 
 spec :: Spec Unit
