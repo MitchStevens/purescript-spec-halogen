@@ -17,6 +17,7 @@ import Data.Symbol (class IsSymbol)
 import Data.Tuple (Tuple(..))
 import Effect.Aff (Aff, Error, Fiber, Milliseconds(..), delay, error, forkAff, joinFiber, killFiber, launchAff_, launchSuspendedAff, makeAff, suspendAff, throwError, try)
 import Effect.Aff.Class (class MonadAff, liftAff)
+import Effect.Class (class MonadEffect, liftEffect)
 import Effect.Class.Console (log)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
@@ -32,12 +33,10 @@ import Halogen.Subscription (Emitter)
 import Halogen.Subscription as HS
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import Prim.Row (class Cons)
-import Signal (Signal)
-import Signal.Aff (mapAff)
-import Signal.Channel (Channel, channel, send, subscribe)
 import Test.Spec (class Example, SpecT, after_, around, around_, before_, mapSpecTree)
 import Test.Spec.Assertions (fail)
 import Type.Proxy (Proxy(..))
+import Unsafe.Coerce (unsafeCoerce)
 
 type Settings = 
   { timeout :: Milliseconds
@@ -190,6 +189,7 @@ data R s act ps o = R
 runUI :: forall query input output
   .  Component query input output Aff
   -> input 
+  -> Aff (HalogenIO query output Aff)
   -> Aff (HalogenIO query output Aff)
 runUI = AffDriver.runUI renderSpec
   where

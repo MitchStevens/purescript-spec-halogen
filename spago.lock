@@ -11,6 +11,8 @@ workspace:
           - halogen
           - matryoshka
           - signal
+          - matryoshka
+          - parsing
           - spec
         build_plan:
           - aff
@@ -32,6 +34,7 @@ workspace:
           - exceptions
           - exists
           - fixed-points
+          - fixed-points
           - foldable-traversable
           - foreign
           - foreign-object
@@ -52,6 +55,7 @@ workspace:
           - lazy
           - lists
           - matryoshka
+          - matryoshka
           - maybe
           - media-types
           - mmorph
@@ -63,13 +67,13 @@ workspace:
           - ordered-collections
           - orders
           - parallel
+          - parsing
           - partial
           - pipes
           - prelude
           - profunctor
           - refs
           - safe-coerce
-          - signal
           - spec
           - st
           - strings
@@ -79,6 +83,7 @@ workspace:
           - type-equality
           - typelevel-prelude
           - unfoldable
+          - unicode
           - unsafe-coerce
           - unsafe-reference
           - web-clipboard
@@ -940,6 +945,15 @@ packages:
       - newtype
       - prelude
       - transformers
+  fixed-points:
+    type: registry
+    version: 7.0.0
+    integrity: sha256-hTl5fzeG4mzAOFzEzAeNH7kJvJgYCH7x3v2NdX9pOE4=
+    dependencies:
+      - exists
+      - newtype
+      - prelude
+      - transformers
   foldable-traversable:
     type: registry
     version: 6.0.0
@@ -1196,6 +1210,16 @@ packages:
       - prelude
       - profunctor
       - transformers
+  matryoshka:
+    type: registry
+    version: 1.0.0
+    integrity: sha256-dPK0v3oNvaHL7finM6TqtxqHIDiiFKLQkqpoerGVqKE=
+    dependencies:
+      - fixed-points
+      - free
+      - prelude
+      - profunctor
+      - transformers
   maybe:
     type: registry
     version: 6.0.0
@@ -1426,6 +1450,36 @@ packages:
       - profunctor
       - refs
       - transformers
+  parsing:
+    type: registry
+    version: 10.2.0
+    integrity: sha256-ZDIdMFAKkst57x6BVa1aUWJnS8smoZnXsZ339Aq1mPA=
+    dependencies:
+      - arrays
+      - control
+      - effect
+      - either
+      - enums
+      - foldable-traversable
+      - functions
+      - identity
+      - integers
+      - lazy
+      - lists
+      - maybe
+      - newtype
+      - nullable
+      - numbers
+      - partial
+      - prelude
+      - st
+      - strings
+      - tailrec
+      - transformers
+      - tuples
+      - unfoldable
+      - unicode
+      - unsafe-coerce
   partial:
     type: registry
     version: 4.0.0
@@ -1514,17 +1568,6 @@ packages:
     integrity: sha256-a1ibQkiUcbODbLE/WAq7Ttbbh9ex+x33VCQ7GngKudU=
     dependencies:
       - unsafe-coerce
-  signal:
-    type: registry
-    version: 13.0.0
-    integrity: sha256-zO7I7zdFfTNxv9XZxj+V/Cs+M8O13Ct6w+MfcdbVj0o=
-    dependencies:
-      - aff
-      - effect
-      - either
-      - foldable-traversable
-      - maybe
-      - prelude
   spec:
     type: registry
     version: 8.0.0
@@ -1691,6 +1734,14 @@ packages:
       - partial
       - prelude
       - tuples
+  unicode:
+    type: registry
+    version: 6.0.0
+    integrity: sha256-QJnTVZpmihEAUiMeYrfkusVoziJWp2hJsgi9bMQLue8=
+    dependencies:
+      - foldable-traversable
+      - maybe
+      - strings
   unsafe-coerce:
     type: registry
     version: 6.0.0

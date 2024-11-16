@@ -8,17 +8,19 @@ package:
     - functors
     - fixed-points
     - matryoshka
+    - parsing
+    - matryoshka
   name: spec-halogen
 
   build:
     censorProjectWarnings: "all"
 
-  bundle:
-    minify: false
-    module: Main
-    outfile: "dist/index.js"
-    platform: browser
-    type: "app"
+  #bundle:
+  #  minify: false
+  #  module: Main
+  #  outfile: "dist/index.js"
+  #  platform: browser
+  #  type: "app"
 
   test:
     main: Test.Main
@@ -26,8 +28,7 @@ package:
       - spec-discovery
       - profunctor-lenses
       - spec-node
-    
-    censorTestWarnings: all
+    execArgs: [ -v, --json-errors ]
 
 workspace:
   packageSet:
