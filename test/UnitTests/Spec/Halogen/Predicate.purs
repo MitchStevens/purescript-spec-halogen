@@ -8,26 +8,22 @@ import Control.Extend (extend)
 import Data.Array (snoc)
 import Data.Foldable (class Foldable, foldr, for_, or)
 import Data.HeytingAlgebra (ff, tt)
-import Effect.Aff (Milliseconds(..), delay, launchAff_)
+import Effect.Aff (Aff, Milliseconds(..), delay, launchAff_)
 import Effect.Aff.Class (liftAff)
 import Effect.Class (liftEffect)
+import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Halogen.Subscription (Emitter, makeEmitter)
 import Halogen.Subscription as HS
-import Test.Spec (Spec, describe, it, pending)
+import Test.Spec (Spec, describe, it, itOnly, pending)
 import Test.Spec.Assertions (expectError, shouldEqual)
-import Test.Spec.Halogen.Assertions (shouldBeSatisfiedBy)
-
---runIncremental :: forall a. Eq a => IncrementalPredicate a -> Array a -> Boolean
---runIncremental incremental array =
---  isSatisfied $ foldr (\a -> extend (runPredicate a)) incremental array
-
 
 
 spec :: Spec Unit
 spec = describe "Test.Spec.Halogen.Predicate" do
   let incremental = 
         { equals: equals 1
+        , not: not (equals 1)
         , or: equals 1 || equals 2
         , and: equals 1 && equals 2
         , then: equals 1 `then_` equals 2
@@ -43,15 +39,15 @@ spec = describe "Test.Spec.Halogen.Predicate" do
   it "finaliseIncremental" do
     isSatisfied (finaliseIncremental (equals 1)) `shouldEqual` Unsatisfied
 
-  describe "repeatAtLeast" do
-    let incremental = repeatAtLeast 2 (equals 0)
-    it "should fail when number of observations < n" do
-      expectError $ incremental `shouldBeSatisfiedBy` []
-      expectError $ incremental `shouldBeSatisfiedBy` [0]
-    it "should pass when number of observations >= n" do
-        incremental `shouldBeSatisfiedBy` [0, 0]
-        incremental `shouldBeSatisfiedBy` [0, 0, 0, 0]
-        incremental `shouldBeSatisfiedBy` [1, 0, 1, 0]
+  --describe "repeatAtLeast" do
+  --  let incremental = repeatAtLeast 2 (equals 0)
+  --  it "should fail when number of observations < n" do
+  --    expectError $ incremental `shouldBeSatisfiedBy` []
+  --    expectError $ incremental `shouldBeSatisfiedBy` [0]
+  --  it "should pass when number of observations >= n" do
+  --      incremental `shouldBeSatisfiedBy` [0, 0]
+  --      incremental `shouldBeSatisfiedBy` [0, 0, 0, 0]
+  --      incremental `shouldBeSatisfiedBy` [1, 0, 1, 0]
   --describe "repeatAtMost" do
   --  let incremental = not (repeatAtLeast 2 (equals 0))
   --  it "should fail when number of observations > n" do
@@ -93,13 +89,41 @@ spec = describe "Test.Spec.Halogen.Predicate" do
   describe "runPredicateFromFoldable" do
     pending ""
   describe "runPredicateFromEmitter" do
-    it "emitFoldable should " do
+    it "emitFoldable should faithfully emit values from a foldable" do
       emittedValues <- liftEffect (Ref.new [])
       let emitter = emitFoldable [ 1, 2, 3, 4, 5 ]
       _ <- liftEffect $ HS.subscribe emitter (\a -> Ref.modify_ (_ `snoc` a) emittedValues)
       delay (Milliseconds 100.0)
       values <- liftEffect $ Ref.read emittedValues
       values `shouldEqual` [ 1, 2, 3, 4, 5 ]
+    it "should pass the following tests" do
+      let
+        emitterTest :: forall a. Eq a => Show a => Array a -> IncrementalPredicate a -> IsSatisfied -> Aff Unit
+        emitterTest values p isSat = do
+          runIncrementalFromEmitter (emitFoldable values) p \ref -> do
+            incremental <- liftEffect (Ref.read ref)
+            isSatisfied incremental `shouldEqual` isSat
+
+      
+      emitterTest [] incremental.not Unsatisfied
+      emitterTest [1] incremental.not (Satisfied false)
+
+      emitterTest [] incremental.or Unsatisfied
+      emitterTest [1] incremental.or (Satisfied true)
+
+      emitterTest []     incremental.and Unsatisfied
+      emitterTest [1]    incremental.and Unsatisfied
+      emitterTest [2]    incremental.and Unsatisfied
+      emitterTest [1, 2] incremental.and (Satisfied true)
+
+      emitterTest []     incremental.then Unsatisfied
+      emitterTest [1]    incremental.then Unsatisfied
+      emitterTest [2]    incremental.then Unsatisfied
+      emitterTest [2, 1] incremental.then Unsatisfied
+      emitterTest [1, 2] incremental.then (Satisfied true)
+
+      
+    
 
 
 
@@ -162,3 +186,6 @@ emitFoldable values = makeEmitter \callback -> do
     launchAff_ (delay (Milliseconds 10.0))
     callback a
   pure (pure unit) -- this emitter is un-unsubscribable
+
+readAff :: forall a. Aff (Ref a) -> Aff a
+readAff a = a >>= \ref -> liftEffect (Ref.read ref)

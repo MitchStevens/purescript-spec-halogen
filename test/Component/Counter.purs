@@ -14,8 +14,9 @@ import Effect.Aff (delay)
 import Effect.Aff.Class (class MonadAff)
 import Effect.Class.Console (log)
 import Effect.Now (now)
-import Halogen (ComponentSpec, HalogenM, ComponentHTML, liftAff)
+import Halogen (ComponentHTML, ComponentSpec, HalogenM, HalogenQ, liftAff)
 import Halogen as H
+import Halogen as HQ
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
@@ -64,15 +65,14 @@ component :: forall m. MonadAff m => H.Component Query Input Output m
 component = H.mkComponent componentSpec
 
 componentSpec :: forall m. MonadAff m => ComponentSpec State Query Action Slots Input Output m
-componentSpec = 
-    { initialState
-    , render
-    , eval: H.mkEval (H.defaultEval 
-        { handleAction = handleAction
-        , handleQuery = handleQuery 
-        })
-    }
+componentSpec = { initialState , render, eval }
   where
+    eval :: HalogenQ Query Action Input ~> HalogenM State Action Slots Output m
+    eval = H.mkEval (H.defaultEval 
+      { handleAction = handleAction
+      , handleQuery = handleQuery 
+      })
+
     handleAction :: Action -> HalogenM State Action Slots Output m Unit
     handleAction = outputOnCountChange <<< case _ of
       SetValue str ->
@@ -81,8 +81,8 @@ componentSpec =
       Double ->
         _count *= 2
       Quadruple -> do
-        handleAction Double
-        handleAction Double
+        eval (HQ.Action Double unit)
+        eval (HQ.Action Double unit)
 
     handleQuery :: forall a. Query a -> HalogenM State Action Slots Output m (Maybe a)
     handleQuery = outputOnCountChange <<< case _ of

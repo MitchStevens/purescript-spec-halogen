@@ -79,8 +79,6 @@ type TestHalogenIO state query action slots input output m =
     (AugmentedQuery state query action slots input output)
     (AugmentedOutput state query action slots input output)
     m
-
-
   --{ query :: forall a. AugmentedQuery state query action slots input output a -> m (Maybe a)
   --, messages :: Emitter (AugmentedOutput state query action slots input output)
   --, dispose :: m Unit
@@ -112,7 +110,7 @@ mkTestComponent spec = mkComponent (spec { eval = eval })
         mapOutput Raised $ spec.eval (Action action a)
       Query queryCoyoneda lazy -> queryCoyoneda # unCoyoneda \un q -> case q of
         Trigger action -> do
-          mapOutput Raised $ spec.eval (Action action (lazy unit))
+          eval (Action action (lazy unit))
         ComponentTell tell ->
           mapOutput Raised $ spec.eval (Query (coyoneda lazy (H.mkTell tell)) lazy)
         ComponentRequest req ->

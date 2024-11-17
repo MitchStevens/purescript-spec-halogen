@@ -8,6 +8,7 @@ import Control.Comonad.Cofree (Cofree, (:<))
 import Control.Comonad.Cofree as Cofree
 import Control.Comonad.Env (EnvT(..))
 import Control.Extend (extend)
+import Control.Monad.Fork.Class (class MonadBracket, bracket)
 import Control.Monad.Free (hoistFree)
 import Data.Array (intercalate)
 import Data.Either (Either(..), either)
@@ -27,8 +28,9 @@ import Data.Newtype (class Newtype, over, over2, unwrap, wrap)
 import Data.Traversable (mapAccumR)
 import Data.Tuple (Tuple(..))
 import Effect (Effect)
-import Effect.Aff (Aff, Canceler(..), Milliseconds(..), bracket, makeAff, runAff_)
-import Effect.Class (liftEffect)
+import Effect.Aff (Aff, Canceler(..), Milliseconds(..), makeAff, runAff_)
+import Effect.Class (class MonadEffect, liftEffect)
+import Effect.Class.Console (log)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
 import Halogen.HTML (p)
@@ -188,13 +190,28 @@ repeatAtMost 0 incremental = not incremental
 repeatAtMost n incremental = incremental `then_` repeatAtLeast (n-1) incremental
 
 -- should be short circuiting but is not!
-runIncrementalFromEmitter :: forall a. Eq a => Emitter a -> IncrementalPredicate a -> Aff (Ref (IncrementalPredicate a))
-runIncrementalFromEmitter emitter pred = do
+-- will this cause a space leak? how do i unsub from the emitter?
+
+{-
+  Running `IncrementalPredicate`s from an `Emitter` is made more complicated because we need to unsubscribe from the emitter when we're done with it. Orginally this function returned a `Ref` to the current value of the `IncrementalPredicate` as it's being modified by new observations from the `Emitter`.
+
+  Unfortunately once the `Ref` to the `IncrementalPredicate` was returned, we have no way to unsubscribe to the `Emitter`! As such the function now takes a callback that describes what you want to do with the `IncrementalPredicate`. After the callback finishes, the emitter is unsubscribed.
+-}
+runIncrementalFromEmitter 
+  :: forall e f m a b. Eq a => Show a
+  => MonadBracket e f m
+  => MonadEffect m
+  => Emitter a
+  -> IncrementalPredicate a 
+  -> (Ref (IncrementalPredicate a) -> m b)
+  -> m b
+runIncrementalFromEmitter emitter pred incrementalPredicateAction = do
   ref <- liftEffect (Ref.new pred)
-  let sub = liftEffect (subscribe emitter (\a -> Ref.modify_ (runIncremental a) ref))
+  let sub = liftEffect $ subscribe emitter (\a -> Ref.modify_ (runIncremental a) ref)
   let unsub = liftEffect <<< unsubscribe
-  bracket sub unsub \_ -> do
-    pure ref
+  bracket sub (\_ -> unsub) \_ ->
+    incrementalPredicateAction ref
+
 
 runIncrementalFromFoldable :: forall f a. Foldable f => Eq a => f a -> IncrementalPredicate a -> IncrementalPredicate a
 runIncrementalFromFoldable values pred = either identity identity $ foldM (flip f) pred values
