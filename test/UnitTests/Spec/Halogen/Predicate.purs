@@ -1,7 +1,7 @@
 module UnitTests.Spec.Halogen.Predicate where
 
 import Prelude
-import Test.Spec.Halogen.Predicate
+import Test.Spec.Predicate
 
 import Control.Comonad.Cofree ((:<))
 import Control.Extend (extend)

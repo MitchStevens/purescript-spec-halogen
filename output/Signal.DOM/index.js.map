@@ -1,1 +1,0 @@
-{"file":"index.js","mappings":";;;;;AAuBA;;;;;;;AAAA;;;;;;;AAAA;;;;;;;AAAA;;;;;;;AAqEA;AA5BA;AAKA,UAEE;kBAAW;sBACJ,SAAW;QAChB,IAD2B;mBACrB;;QACN,OAAK;;;AAKT;AA1CA;AAOA,yBAAA;IAGI;QACE,IADkB;mBACM;;QACxB,IAFkB;mBAEM;;QACxB,IAHkB;mBAGM;;QACxB,IAJkB;mBAIM;;6GAJN;;WAFC,YAAY;;AAhBrC;AAyDA","names":[],"sources":["../../.spago/p/signal-13.0.0/src/Signal/DOM.purs"],"version":3}

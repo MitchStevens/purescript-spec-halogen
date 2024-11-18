@@ -27,8 +27,8 @@ import Halogen.Subscription (Subscription, subscribe)
 import Halogen.Subscription as HS
 import Partial.Unsafe (unsafeCrashWith)
 import Prim.Row as Row
-import Test.Spec.Halogen.Driver (AugmentedOutput(..), AugmentedQuery(..), TestHalogenM)
-import Test.Spec.Halogen.Predicate (IncrementalPredicate, IsSatisfied(..), equals, finaliseIncremental, isSatisfied, runIncrementalFromEmitter, runIncrementalFromFoldable)
+import Test.Spec.Halogen.Aff.Driver (AugmentedOutput(..), AugmentedQuery(..), TestHalogenM)
+import Test.Spec.Predicate (IncrementalPredicate, IsSatisfied(..), equals, finaliseIncremental, isSatisfied, runIncrementalFromEmitter, runIncrementalFromFoldable)
 import Type.Proxy (Proxy)
 
 shouldInduce :: forall state query action slots input output a
