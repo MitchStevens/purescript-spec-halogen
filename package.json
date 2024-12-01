@@ -3,7 +3,7 @@
   "private": true,
   "scripts": {
     "postinstall": "spago install",
-    "build": "spago bundle",
+    "build": "spago build",
     "build-watch": "fd . -e purs -e js -e less | entr -s 'npm run build'",
     "test": "spago test -- --fail-fast",
     "test-watch": "fd . -e purs -e js | entr -s 'npm run test'",

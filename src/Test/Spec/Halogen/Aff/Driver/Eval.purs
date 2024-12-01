@@ -35,7 +35,6 @@ import Halogen.Query.Input (Input)
 import Halogen.Query.Input as Input
 import Halogen.Subscription as HS
 import Test.Spec.Halogen.Aff.Driver.State (DriverState(..), DriverStateRef(..), LifecycleHandlers, mapDriverState, unDriverStateX)
-import Test.Spec.Halogen.Component (AugmentedOutput(..))
 import Unsafe.Reference (unsafeRefEq)
 
 type Renderer r =
@@ -83,19 +82,22 @@ evalM render initRef (HalogenM hm) = foldFree (go initRef) hm
     -> Aff a'
   go ref = case _ of
     State f -> do
-      DriverState (st@{ state, lifecycleHandlers }) <- liftEffect (Ref.read ref)
+      DriverState (st@{ state, lifecycleHandlers, handlerState }) <- liftEffect (Ref.read ref)
       case f state of
         Tuple a state'
           | unsafeRefEq state state' -> pure a
           | otherwise -> do
               liftEffect $ Ref.write (DriverState (st { state = state' })) ref
+              handlerState state'
               handleLifecycle lifecycleHandlers (render lifecycleHandlers ref)
               pure a
     Subscribe fes k -> do
       sid <- fresh SubscriptionId ref
+      DriverState { subscriptions, handlerAction } <- liftEffect (Ref.read ref)
       finalize <- liftEffect $ HS.subscribe (fes sid) \act ->
-        handleAff $ evalF render ref (Input.Action act)
-      DriverState ({ subscriptions }) <- liftEffect (Ref.read ref)
+        handleAff do 
+          evalF render ref (Input.Action act)
+          handlerAction act
       liftEffect $ Ref.modify_ (map (M.insert sid finalize)) subscriptions
       pure (k sid)
     Unsubscribe sid next -> do
@@ -106,9 +108,9 @@ evalM render initRef (HalogenM hm) = foldFree (go initRef) hm
     ChildQuery cq ->
       evalChildQuery ref cq
     Raise o a -> do
-      DriverState { handlerRef, pendingOuts } <- liftEffect (Ref.read ref)
-      handler <- liftEffect (Ref.read handlerRef)
-      queueOrRun pendingOuts (handler o)
+      DriverState { handler, pendingOuts } <- liftEffect (Ref.read ref)
+      handlerOutput <- liftEffect (Ref.read handler)
+      queueOrRun pendingOuts (handlerOutput o)
       pure a
     Par (HalogenAp p) ->
       sequential $ retractFreeAp $ hoistFreeAp (parallel <<< evalM render ref) p

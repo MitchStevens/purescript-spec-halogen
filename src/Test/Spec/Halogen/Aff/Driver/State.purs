@@ -4,11 +4,12 @@ module Test.Spec.Halogen.Aff.Driver.State
   , DriverStateRef(..)
   , DriverStateX
   , LifecycleHandlers
-  , RenderStateX(..)
+  , RenderStateX
+  , coerceToHalogenDriverState
+  , coerceToHalogenDriverStateX
   , initDriverState
   , mapDriverState
   , mkDriverStateXRef
-  , mkRenderStateX
   , renderStateX
   , renderStateX_
   , unDriverStateX
@@ -26,12 +27,12 @@ import Effect (Effect)
 import Effect.Aff (Aff, Fiber)
 import Effect.Ref (Ref)
 import Effect.Ref as Ref
+import Halogen.Aff.Driver.State as Halogen
 import Halogen.Component (ComponentSpec)
 import Halogen.Data.Slot (SlotStorage)
 import Halogen.Data.Slot as SlotStorage
 import Halogen.Query.HalogenM (ForkId, SubscriptionId)
 import Halogen.Subscription as HS
-import Test.Spec.Halogen.Component (AugmentedOutput)
 import Unsafe.Coerce (unsafeCoerce)
 import Web.DOM (Element)
 
@@ -46,11 +47,11 @@ type DriverStateRec r s f act ps i o =
   { component :: ComponentSpec s f act ps i o Aff
   , state :: s
   , refs :: M.Map String Element
-  , children :: SlotStorage ps (DriverStateRef r s act)
-  , childrenIn :: Ref (SlotStorage ps (DriverStateRef r s act))
-  , childrenOut :: Ref (SlotStorage ps (DriverStateRef r s act))
+  , children :: SlotStorage ps (DriverStateRef r)
+  , childrenIn :: Ref (SlotStorage ps (DriverStateRef r))
+  , childrenOut :: Ref (SlotStorage ps (DriverStateRef r))
   , selfRef :: Ref (DriverState r s f act ps i o)
-  , handlerRef :: Ref (o -> Aff Unit)
+  , handler :: Ref (o -> Aff Unit)
   , handlerAction :: act -> Aff Unit
   , handlerState :: s -> Aff Unit
   , pendingQueries :: Ref (Maybe (List (Aff Unit)))
@@ -70,30 +71,44 @@ mapDriverState
   -> DriverState r s f act ps i o
 mapDriverState f (DriverState ds) = DriverState (f ds)
 
-newtype DriverStateRef r s act f o
-  = DriverStateRef (Ref (DriverStateX r s act f o))
+newtype DriverStateRef r f o = DriverStateRef (Ref (DriverStateX r f o))
 
 -- | A version of `DriverState` with the aspects relating to child components
 -- | existentially hidden.
 data DriverStateX
   (r :: Type -> Type -> Row Type -> Type -> Type)
-  (s :: Type)
-  (act :: Type)
   (f :: Type -> Type)
   (o :: Type)
 
 mkDriverStateXRef
   :: forall r s f act ps i o
    . Ref (DriverState r s f act ps i o)
-  -> Ref (DriverStateX r s act f o)
+  -> Ref (DriverStateX r f o)
 mkDriverStateXRef = unsafeCoerce
 
 unDriverStateX
-  :: forall r f i o x s act
-   . (forall ps. DriverStateRec r s f act ps i o -> x)
-  -> DriverStateX r s act f o
+  :: forall r f i o x
+   . (forall s act ps. DriverStateRec r s f act ps i o -> x)
+  -> DriverStateX r f o
   -> x
 unDriverStateX = unsafeCoerce
+
+coerceToHalogenDriverState
+  :: forall r s f act ps i o
+   . Ref (DriverState r s f act ps i o)
+  -> Ref (Halogen.DriverState r s f act ps i o)
+coerceToHalogenDriverState = unsafeCoerce
+
+coerceToHalogenDriverStateX
+  :: forall r f o
+   . Ref (DriverStateX r f o)
+  -> Ref (Halogen.DriverStateX r f o)
+coerceToHalogenDriverStateX = unsafeCoerce
+
+
+
+
+
 
 -- | A wrapper of `r` from `DriverState` with the aspects relating to child
 -- | components existentially hidden.
@@ -113,24 +128,21 @@ unRenderStateX
 unRenderStateX = unsafeCoerce
 
 renderStateX
-  :: forall m r s act f o
+  :: forall m r f o
    . Functor m
   => (forall s act ps. Maybe (r s act ps o) -> m (r s act ps o))
-  -> DriverStateX r s act f o
+  -> DriverStateX r f o
   -> m (RenderStateX r)
 renderStateX f = unDriverStateX \st ->
   mkRenderStateX (f st.rendering)
 
 renderStateX_
-  :: forall m r s act f o
+  :: forall m r f o
    . Applicative m
   => (forall s act ps. r s act ps o -> m Unit)
-  -> DriverStateX r s act f o
+  -> DriverStateX r f o
   -> m Unit
 renderStateX_ f = unDriverStateX \st -> traverse_ f st.rendering
-
-
-
 
 initDriverState
   :: forall r s f act ps i o
@@ -140,14 +152,14 @@ initDriverState
   -> (act -> Aff Unit)
   -> (s -> Aff Unit)
   -> Ref LifecycleHandlers
-  -> Effect (Ref (DriverStateX r s act f o))
-initDriverState component input handler handlerAction handlerState lchs = do
+  -> Effect (Ref (DriverStateX r f o))
+initDriverState component input handlerOutput handlerAction handlerState lchs = do
   selfRef <- Ref.new (unsafeCoerce {})
   childrenIn <- Ref.new SlotStorage.empty
   childrenOut <- Ref.new SlotStorage.empty
-  handlerRef <- Ref.new handler
-  pendingOuts <- Ref.new (Just Nil)
+  handler <- Ref.new handlerOutput
   pendingQueries <- Ref.new (Just Nil)
+  pendingOuts <- Ref.new (Just Nil)
   pendingHandlers <- Ref.new Nothing
   fresh <- Ref.new 1
   subscriptions <- Ref.new (Just M.empty)
@@ -162,11 +174,11 @@ initDriverState component input handler handlerAction handlerState lchs = do
       , childrenIn
       , childrenOut
       , selfRef
-      , handlerRef
+      , handler
       , handlerAction
       , handlerState
-      , pendingOuts
       , pendingQueries
+      , pendingOuts
       , pendingHandlers
       , rendering: Nothing
       , fresh

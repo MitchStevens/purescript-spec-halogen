@@ -162,6 +162,37 @@ instance Show Action where
   show = genericShow
 ```
 
+## Make recursive `handleAction` or `handleQuery` calls 
+
+Consider a `Component` action that calls another action:
+
+```haskell
+handleAction = case _ of
+  Double num -> modify_ (mul 2)
+  Quadruple num -> -- want to call Double twice to quadruple the value  
+```
+
+The easiest way of doing this would be calling `handleAction` recursively:
+
+```
+-- WRONG
+handleAction = case _ of
+  Double -> modify_ (mul 2)
+  Quadruple -> handleAction Double *> handleAction Double
+```
+
+Unfortunatly this will not trigger an Action properly. Instead, trigger the action from your component's `eval` function:
+
+```
+-- CORRECT
+eval :: HalogenQ query action input a -> HalogenM state action slots output m a
+eval = mkEval (defaultEval { handleAction = handleAction })
+
+handleAction = case _ of
+  Double -> modify_ (mul 2)
+  Quadruple -> eval (HQ.Action Double unit) *> eval (HQ.Action Double unit)
+```
+
 # Writing tests
 
 ```haskell
@@ -198,3 +229,4 @@ it "should complete " do
 ### I want to assert that an action is performed exactly `n` times!
 
 To write tests that require repetition, you should
+

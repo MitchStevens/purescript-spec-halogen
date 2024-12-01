@@ -27,7 +27,7 @@ import Halogen.Subscription (Subscription, subscribe)
 import Halogen.Subscription as HS
 import Partial.Unsafe (unsafeCrashWith)
 import Prim.Row as Row
-import Test.Spec.Halogen.Aff.Driver (AugmentedOutput(..), AugmentedQuery(..), TestHalogenM)
+import Test.Spec.Halogen.Aff.Driver (CombinedOutput, TestHalogenM, combinedEmitter)
 import Test.Spec.Predicate (IncrementalPredicate, IsSatisfied(..), equals, finaliseIncremental, isSatisfied, runIncrementalFromEmitter, runIncrementalFromFoldable)
 import Type.Proxy (Proxy)
 
@@ -35,15 +35,15 @@ shouldInduce :: forall state query action slots input output a
   .  Eq state => Eq action => Eq output
   => Show state => Show action => Show output
   => TestHalogenM state query action slots input output a
-  -> IncrementalPredicate (AugmentedOutput state query action slots input output) 
+  -> IncrementalPredicate (CombinedOutput state action output) 
   -> TestHalogenM state query action slots input output a
 shouldInduce testHalogenM pred = do
   timeout <- asks (_.settings.timeout)
-  messages <- asks (_.io.messages)
 
-  _ <- liftEffect $ subscribe messages (\a -> log (show a))
+  emitter <- asks (_.io >>> combinedEmitter)
+  _ <- liftEffect $ subscribe emitter (\a -> log (show a))
 
-  runIncrementalFromEmitter messages pred \ref -> do
+  runIncrementalFromEmitter emitter pred \ref -> do
     res <- testHalogenM
     liftAff (delay timeout)
 
@@ -53,94 +53,98 @@ shouldInduce testHalogenM pred = do
       _ -> throwError (error (show isSat))
 
 
--- Operations
-runAugmentedQuery :: forall state query action slots input output a
-  .  AugmentedQuery state query action slots input output a
-  -> TestHalogenM state query action slots input output (Maybe a)
-runAugmentedQuery augmentedQuery = do
-  (query :: forall x. AugmentedQuery state query action slots input output x -> Aff (Maybe x)) <- asks (_.io.query)
-  liftAff $ query augmentedQuery
+---- Operations
+--runAugmentedQuery :: forall state query action slots input output a
+--  .  AugmentedQuery state query action slots input output a
+--  -> TestHalogenM state query action slots input output (Maybe a)
+--runAugmentedQuery augmentedQuery = do
+--  (query :: forall x. AugmentedQuery state query action slots input output x -> Aff (Maybe x)) <- asks (_.io.query)
+--  liftAff $ query augmentedQuery
+--
+--trigger :: forall state query action slots input output
+--  .  action 
+--  -> TestHalogenM state query action slots input output Unit
+--trigger action = void $ runAugmentedQuery (Trigger action)
+--
 
-trigger :: forall state query action slots input output
-  .  action 
-  -> TestHalogenM state query action slots input output Unit
-trigger action = void $ runAugmentedQuery (Trigger action)
-
-componentTell :: forall state query action slots input output
+tell :: forall state query action slots input output
   .  Tell query 
   -> TestHalogenM state query action slots input output Unit
-componentTell tell = void $ runAugmentedQuery (ComponentTell tell)
+tell t = do
+  (query :: forall x. query x -> Aff (Maybe x)) <- asks (_.io.request)
+  liftAff $ void $ query (t unit)
 
-componentRequest :: forall state query action slots input output a
-  .  Request query a
-  -> TestHalogenM state query action slots input output (Maybe a)
-componentRequest req = runAugmentedQuery (ComponentRequest req)
 
-childQueryBox
-  :: forall label slots q o slot a _1
-   . Row.Cons label (Slot q o slot) _1 slots
-  => IsSymbol label
-  => Ord slot
-  => Proxy label
-  -> slot
-  -> q a
-  -> ChildQueryBox slots (Maybe a)
-childQueryBox label p q = CQ.mkChildQueryBox $
-  CQ.ChildQuery (\k storage -> maybe (pure Nothing) k (Slot.lookup label p storage)) q identity
-
-childTell
-  :: forall state query action slots input output label q o slot _1
-   . Row.Cons label (Slot q o slot) _1 slots
-  => IsSymbol label
-  => Ord slot
-  => Proxy label
-  -> slot
-  -> Tell q
-  -> TestHalogenM state query action slots input output Unit
-childTell label p tell =
-  void $ runAugmentedQuery (ChildTell childQueryBox)
-
-  where
-    childQueryBox :: Tell (ChildQueryBox slots)
-    childQueryBox _ = CQ.mkChildQueryBox childQuery
-
-    childQuery :: ChildQuery slots q o Unit Maybe Unit
-    childQuery =
-      CQ.ChildQuery (\k -> maybe (pure Nothing) k <<< Slot.lookup label p) (mkTell tell) (\_ -> unit)
-
-childRequest
-  :: forall state query action slots input output label q o slot a _1
-   . Row.Cons label (Slot q o slot) _1 slots
-  => IsSymbol label
-  => Ord slot
-  => Proxy label
-  -> slot
-  -> Request q a
-  -> TestHalogenM state query action slots input output (Maybe a)
-childRequest label p req = map join $
-    runAugmentedQuery (ChildRequest childQueryBox)
-
-  where
-    childQueryBox :: Request (ChildQueryBox slots) (Maybe a)
-    childQueryBox _ = CQ.mkChildQueryBox childQuery
-
-    childQuery :: ChildQuery slots q o (Maybe a) Maybe a
-    childQuery =
-      CQ.ChildQuery (\k -> maybe (pure Nothing) k <<< Slot.lookup label p) (mkRequest req) identity
+--componentRequest :: forall state query action slots input output a
+--  .  Request query a
+--  -> TestHalogenM state query action slots input output (Maybe a)
+--componentRequest req = runAugmentedQuery (ComponentRequest req)
+--
+--childQueryBox
+--  :: forall label slots q o slot a _1
+--   . Row.Cons label (Slot q o slot) _1 slots
+--  => IsSymbol label
+--  => Ord slot
+--  => Proxy label
+--  -> slot
+--  -> q a
+--  -> ChildQueryBox slots (Maybe a)
+--childQueryBox label p q = CQ.mkChildQueryBox $
+--  CQ.ChildQuery (\k storage -> maybe (pure Nothing) k (Slot.lookup label p storage)) q identity
+--
+--childTell
+--  :: forall state query action slots input output label q o slot _1
+--   . Row.Cons label (Slot q o slot) _1 slots
+--  => IsSymbol label
+--  => Ord slot
+--  => Proxy label
+--  -> slot
+--  -> Tell q
+--  -> TestHalogenM state query action slots input output Unit
+--childTell label p tell =
+--  void $ runAugmentedQuery (ChildTell childQueryBox)
+--
+--  where
+--    childQueryBox :: Tell (ChildQueryBox slots)
+--    childQueryBox _ = CQ.mkChildQueryBox childQuery
+--
+--    childQuery :: ChildQuery slots q o Unit Maybe Unit
+--    childQuery =
+--      CQ.ChildQuery (\k -> maybe (pure Nothing) k <<< Slot.lookup label p) (mkTell tell) (\_ -> unit)
+--
+--childRequest
+--  :: forall state query action slots input output label q o slot a _1
+--   . Row.Cons label (Slot q o slot) _1 slots
+--  => IsSymbol label
+--  => Ord slot
+--  => Proxy label
+--  -> slot
+--  -> Request q a
+--  -> TestHalogenM state query action slots input output (Maybe a)
+--childRequest label p req = map join $
+--    runAugmentedQuery (ChildRequest childQueryBox)
+--
+--  where
+--    childQueryBox :: Request (ChildQueryBox slots) (Maybe a)
+--    childQueryBox _ = CQ.mkChildQueryBox childQuery
+--
+--    childQuery :: ChildQuery slots q o (Maybe a) Maybe a
+--    childQuery =
+--      CQ.ChildQuery (\k -> maybe (pure Nothing) k <<< Slot.lookup label p) (mkRequest req) identity
 
 
 -- Predicates
-triggered :: forall state query action slots input output
-  .  action 
-  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
-triggered a = equals (Triggered a)
-
-modified :: forall state query action slots input output
-  .  state 
-  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
-modified a = equals (Modified a)
-
-raised :: forall state query action slots input output
-  .  output 
-  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
-raised a = equals (Raised a)
+--triggered :: forall state query action slots input output
+--  .  action 
+--  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
+--triggered a = equals (Triggered a)
+--
+--modified :: forall state query action slots input output
+--  .  state 
+--  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
+--modified a = equals (Modified a)
+--
+--raised :: forall state query action slots input output
+--  .  output 
+--  -> IncrementalPredicate (AugmentedOutput state query action slots input output)
+--raised a = equals (Raised a)

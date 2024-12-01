@@ -9,7 +9,7 @@ import Data.Maybe (Maybe(..))
 import Effect.Aff (Aff, Milliseconds(..))
 import Test.Spec (Spec, SpecT, describe, describeOnly, it, pending)
 import Test.Spec.Assertions (expectError, shouldEqual, shouldReturn)
-import Test.Spec.Halogen.Assertions (componentRequest, componentTell, modified, raised, shouldInduce, trigger, triggered)
+import Test.Spec.Halogen.Aff.Driver (mkTestComponent, withComponent)
 import Test.Spec.Predicate (repeatExactly)
 
 spec :: Spec Unit
@@ -18,28 +18,25 @@ spec = tests
 
 tests :: forall m. Monad m => SpecT Aff Unit m Unit
 tests = do
-  pure unit
-
-{-
   describe "Test.Spec.Halogen.Assertion" do
-    withComponent Counter.componentSpec unit do
+    withComponent (mkTestComponent Counter.componentSpec) unit do
       describe "Counter component" do
         describe "State" do
-          it "should have state" $ runReaderT do
-            s <- getComponentState
-            s.count `shouldEqual` 0
+          pending "state"
+          --it "should have state" $ runReaderT do
+          --  s <- getComponentState
+          --  s.count `shouldEqual` 0
 
-          describe "it should not retain state between tests" do
-            it "test1" $ runReaderT do
-              trigger (SetValue "1")
-              s <- getComponentState
-              s.count `shouldEqual` 1
-            it "test2" $ runReaderT do
-              s <- getComponentState
-              s.count `shouldEqual` 0
+          --describe "it should not retain state between tests" do
+          --  it "test1" $ runReaderT do
+          --    trigger (SetValue "1")
+          --    s <- getComponentState
+          --    s.count `shouldEqual` 1
+          --  it "test2" $ runReaderT do
+          --    s <- getComponentState
+          --    s.count `shouldEqual` 0
 
-          --it "should" $ runReaderT do
-          --  trigger (SetValue "1") `shouldInduce` modified { count: 1, isPondering: false }
+          {-
       describe "trigger" do
         it "" $ runReaderT do
           trigger (SetValue "1") `shouldInduce` triggered (SetValue "1")
